@@ -3,9 +3,11 @@ import time
 import re
 
 from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver import ActionChains
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
+
 
 
 
@@ -36,8 +38,45 @@ for category in categories:
     tabs = driver.window_handles
     driver.switch_to.window(tabs[1])
     driver.get(f'https://magsbt.com/{data_href}')
-    last_element = driver.find_element(By.XPATH, '(//*[@class="dark_link"])[last()]').text
-
+    
+    # Проверяем наличие элемента '(//*[@class="dark_link"])[last()]'
+    try:
+        last_element = driver.find_element(By.XPATH, '(//*[@class="dark_link"])[last()]').text
+    except NoSuchElementException:
+        # Если элемент не найден, начинаем обработку элементов items
+        items = driver.find_elements(By.CLASS_NAME, 'table-view__item')
+        for item in items :
+            item_title = WebDriverWait(item, 10).until(
+                EC.visibility_of_element_located((By.CSS_SELECTOR, 'div.item-title > a.dark_link.js-notice-block__title > span')
+                )).text
+            item_available = WebDriverWait(item, 10).until(
+                EC.visibility_of_element_located((By.CSS_SELECTOR, '.item-stock .value span span')
+                )).text
+            
+            item_code = WebDriverWait(item, 10).until(
+                EC.visibility_of_element_located((By.CLASS_NAME, 'article_block')
+                )).text
+            # Разделить строку по символу "|"
+            split_by_pipe = item_code.split(" | ")
+            code = None
+            art = None
+            for part in split_by_pipe:
+                if "Код" in part:
+                    code = part.split(": ")[1]
+                elif "Арт" in part:
+                    art = part.split(": ")[1]
+            if code is not None:
+                print(item_title)
+                print(item_available)
+                print(code)
+                if art is not None:
+                    print(art)
+        # Закрываем вкладку и переключаемся на основную страницу
+        driver.close()
+        driver.switch_to.window(tabs[0])
+        continue  # Продолжаем цикл, чтобы перейти к следующей категории
+    
+    # Если элемент найден, продолжаем выполнение кода
     items_list = []
     for i in range(1, int(last_element)+1):
         driver.get(f'https://magsbt.com/{data_href}/?PAGEN_1={i}')
