@@ -1,4 +1,6 @@
 import pickle
+import time
+import re
 
 from selenium import webdriver
 from selenium.webdriver import ActionChains
@@ -19,6 +21,8 @@ option.set_preference('general.useragent.override', 'firefox142134')
 
 driver = webdriver.Firefox(options=option)
 
+start_time = time.time()
+
 driver.get('https://magsbt.com/')
 for cookie in pickle.load(open('session', 'rb')):
     driver.add_cookie(cookie)
@@ -32,30 +36,43 @@ for category in categories:
     tabs = driver.window_handles
     driver.switch_to.window(tabs[1])
     driver.get(f'https://magsbt.com/{data_href}')
-    items = driver.find_elements(By.CLASS_NAME, 'table-view__item')
-    button_enabled = False
+    last_element = driver.find_element(By.XPATH, '(//*[@class="dark_link"])[last()]').text
 
-# Пока кнопка не будет доступна для нажатия, продолжаем ожидание
-    while not button_enabled:
-        try:
-        # Ждем, пока кнопка не станет видимой
-            WebDriverWait(driver, 10).until(
-                EC.visibility_of_element_located((By.CLASS_NAME, 'more_text_ajax'))
-            ).click()
-        # Если кнопка кликабельна (т.е. не выбросится исключение), устанавливаем флаг в True
-            button_enabled = True
-        except:
-        # Если кнопка не кликабельна, продолжаем ожидание
-            pass
     items_list = []
-    for item in items :
-        item_title = WebDriverWait(item, 10).until(
-            EC.visibility_of_element_located((By.CSS_SELECTOR, 'div.item-title > a.dark_link.js-notice-block__title > span')
-            )).text
-        print(item_title)
-        
-    print('Конец категории')
+    for i in range(1, int(last_element)+1):
+        driver.get(f'https://magsbt.com/{data_href}/?PAGEN_1={i}')
+        items = driver.find_elements(By.CLASS_NAME, 'table-view__item')
+        for item in items :
+            item_title = WebDriverWait(item, 10).until(
+                EC.visibility_of_element_located((By.CSS_SELECTOR, 'div.item-title > a.dark_link.js-notice-block__title > span')
+                )).text
+            item_available = WebDriverWait(item, 10).until(
+                EC.visibility_of_element_located((By.CSS_SELECTOR, '.item-stock .value span span')
+                )).text
+            
+            item_code = WebDriverWait(item, 10).until(
+                EC.visibility_of_element_located((By.CLASS_NAME, 'article_block')
+                )).text
+            # Разделить строку по символу "|"
+            split_by_pipe = item_code.split(" | ")
+            code = None
+            art = None
+            for part in split_by_pipe:
+                if "Код" in part:
+                    code = part.split(": ")[1]
+                elif "Арт" in part:
+                    art = part.split(": ")[1]
+            if code is not None:
+                print(item_title)
+                print(item_available)
+                print(code)
+                if art is not None:
+                    print(art)
     driver.close()
     driver.switch_to.window(tabs[0]) 
+
+end_time = time.time()  # Засекаем время окончания выполнения скрипта
+execution_time = end_time - start_time  # Вычисляем время выполнения
+print("Время выполнения скрипта:", execution_time, "секунд")
 # Спарсить количесвто страниц для категории
 # Пройтись по страницам https://magsbt.com/catalog/zapchasti-dlya-stiralnykh-mashin/?PAGEN_1=54
