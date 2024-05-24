@@ -1,6 +1,7 @@
 import pickle
 import time
-import re
+import sqlite3
+import xml.etree.ElementTree as ET
 
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
@@ -24,6 +25,8 @@ option.set_preference('general.useragent.override', 'firefox142134')
 driver = webdriver.Firefox(options=option)
 
 start_time = time.time()
+# Создаем корневой элемент
+root = ET.Element("items")
 
 driver.get('https://magsbt.com/')
 for cookie in pickle.load(open('session', 'rb')):
@@ -66,11 +69,21 @@ for category in categories:
                 elif "Арт" in part:
                     art = part.split(": ")[1]
             if code is not None:
-                print(item_title)
-                print(item_available)
-                print(code)
+                item_element = ET.SubElement(root, "item")
+                title_element = ET.SubElement(item_element, "title")
+                title_element.text = item_title
+                if "шт. в Екатеринбурге" in item_available:
+        # Извлекаем только цифры из 'available'
+                    available_digits = ''.join(filter(str.isdigit, item_available))
+                    available_element = ET.SubElement(item_element, "available")
+                    available_element.text = item_available
+                code_element = ET.SubElement(item_element, "code")
+                code_element.text = code
                 if art is not None:
-                    print(art)
+                    art_element = ET.SubElement(item_element, "art")
+                    art_element.text = art
+                
+            
         # Закрываем вкладку и переключаемся на основную страницу
         driver.close()
         driver.switch_to.window(tabs[0])
@@ -102,13 +115,26 @@ for category in categories:
                 elif "Арт" in part:
                     art = part.split(": ")[1]
             if code is not None:
-                print(item_title)
-                print(item_available)
-                print(code)
+                item_element = ET.SubElement(root, "item")
+                title_element = ET.SubElement(item_element, "title")
+                title_element.text = item_title
+                if "шт. в Екатеринбурге" in item_available:
+                    # Извлекаем только цифры из 'available'
+                    available_digits = ''.join(filter(str.isdigit, item_available))
+                    available_element = ET.SubElement(item_element, "available")
+                    available_element.text = item_available
+                code_element = ET.SubElement(item_element, "code")
+                code_element.text = code
                 if art is not None:
-                    print(art)
+                    art_element = ET.SubElement(item_element, "art")
+                    art_element.text = art
+    
+    tree = ET.ElementTree(root)
+    tree.write("items.xml", encoding="utf-8", xml_declaration=True)
+                
     driver.close()
     driver.switch_to.window(tabs[0]) 
+
 
 end_time = time.time()  # Засекаем время окончания выполнения скрипта
 execution_time = end_time - start_time  # Вычисляем время выполнения
